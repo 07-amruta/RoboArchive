@@ -11,30 +11,25 @@ export const getAllArticles = async (req, res) => {
       WHERE 1=1
     `;
     const params = [];
-    let paramCount = 1;
     
     if (type) {
-      queryText += ` AND a.type = $${paramCount}`;
+      queryText += ` AND a.type = ?`;
       params.push(type);
-      paramCount++;
     }
     
     if (category) {
-      queryText += ` AND a.category = $${paramCount}`;
+      queryText += ` AND a.category = ?`;
       params.push(category);
-      paramCount++;
     }
     
     if (year) {
-      queryText += ` AND a.competition_year = $${paramCount}`;
+      queryText += ` AND a.competition_year = ?`;
       params.push(year);
-      paramCount++;
     }
     
     if (search) {
-      queryText += ` AND (a.title ILIKE $${paramCount} OR a.content ILIKE $${paramCount})`;
-      params.push(`%${search}%`);
-      paramCount++;
+      queryText += ` AND (a.title LIKE ? OR a.content LIKE ?)`;
+      params.push(`%${search}%`, `%${search}%`);
     }
     
     queryText += ' ORDER BY a.created_at DESC';
@@ -50,9 +45,8 @@ export const getArticleById = async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Increment view count
     await query(
-      'UPDATE articles SET view_count = view_count + 1 WHERE article_id = $1',
+      'UPDATE articles SET view_count = view_count + 1 WHERE article_id = ?',
       [id]
     );
     
@@ -60,7 +54,7 @@ export const getArticleById = async (req, res) => {
       `SELECT a.*, m.name as author_name
        FROM articles a
        LEFT JOIN members m ON a.author_id = m.member_id
-       WHERE a.article_id = $1`,
+       WHERE a.article_id = ?`,
       [id]
     );
     
@@ -79,18 +73,24 @@ export const createArticle = async (req, res) => {
     const { title, content, type, category, competition_year } = req.body;
     const author_id = req.user.member_id;
     
-    const result = await query(
+    await query(
       `INSERT INTO articles (title, content, author_id, type, category, competition_year)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [title, content, author_id, type, category, competition_year]
     );
     
-    // Log contribution
-    await query(
-      `INSERT INTO contributions (member_id, contribution_type, reference_id)
-       VALUES ($1, 'article', $2)`,
-      [author_id, result.rows[0].article_id]
+    const result = await query(
+      `SELECT * FROM articles WHERE author_id = ? ORDER BY article_id DESC LIMIT 1`,
+      [author_id]
     );
+    
+    if (result.rows[0]) {
+      await query(
+        `INSERT INTO contributions (member_id, contribution_type, reference_id)
+         VALUES (?, ?, ?)`,
+        [author_id, 'article', result.rows[0].article_id]
+      );
+    }
     
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -103,16 +103,21 @@ export const updateArticle = async (req, res) => {
     const { id } = req.params;
     const { title, content, type, category, competition_year } = req.body;
     
-    const result = await query(
+    await query(
       `UPDATE articles 
-       SET title = COALESCE($1, title),
-           content = COALESCE($2, content),
-           type = COALESCE($3, type),
-           category = COALESCE($4, category),
-           competition_year = COALESCE($5, competition_year),
+       SET title = IFNULL(?, title),
+           content = IFNULL(?, content),
+           type = IFNULL(?, type),
+           category = IFNULL(?, category),
+           competition_year = IFNULL(?, competition_year),
            updated_at = CURRENT_TIMESTAMP
-       WHERE article_id = $6 RETURNING *`,
+       WHERE article_id = ?`,
       [title, content, type, category, competition_year, id]
+    );
+    
+    const result = await query(
+      'SELECT * FROM articles WHERE article_id = ?',
+      [id]
     );
     
     if (result.rows.length === 0) {
@@ -128,14 +133,20 @@ export const updateArticle = async (req, res) => {
 export const deleteArticle = async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await query(
-      'DELETE FROM articles WHERE article_id = $1 RETURNING article_id',
+    
+    const checkResult = await query(
+      'SELECT article_id FROM articles WHERE article_id = ?',
       [id]
     );
     
-    if (result.rows.length === 0) {
+    if (checkResult.rows.length === 0) {
       return res.status(404).json({ error: 'Article not found' });
     }
+    
+    await query(
+      'DELETE FROM articles WHERE article_id = ?',
+      [id]
+    );
     
     res.json({ message: 'Article deleted successfully' });
   } catch (error) {

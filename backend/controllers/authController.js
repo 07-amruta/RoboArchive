@@ -9,10 +9,15 @@ export const register = async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    const result = await query(
+    await query(
       `INSERT INTO members (name, email, password, role, join_year, graduation_year) 
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING member_id, name, email, role`,
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [name, email, hashedPassword, role, join_year, graduation_year]
+    );
+    
+    const result = await query(
+      'SELECT member_id, name, email, role FROM members WHERE email = ?',
+      [email]
     );
     
     res.status(201).json({ 
@@ -20,7 +25,7 @@ export const register = async (req, res) => {
       member: result.rows[0] 
     });
   } catch (error) {
-    if (error.constraint === 'members_email_key') {
+    if (error.code === 'ER_DUP_ENTRY') {
       return res.status(400).json({ error: 'Email already exists' });
     }
     res.status(500).json({ error: error.message });
@@ -32,7 +37,7 @@ export const login = async (req, res) => {
     const { email, password } = req.body;
     
     const result = await query(
-      'SELECT * FROM members WHERE email = $1',
+      'SELECT * FROM members WHERE email = ?',
       [email]
     );
     

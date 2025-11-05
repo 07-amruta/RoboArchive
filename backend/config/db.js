@@ -1,27 +1,34 @@
-import pg from 'pg';
+import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const { Pool } = pg;
-
-const pool = new Pool({
-  user: process.env.DB_USER,
+const pool = mysql.createPool({
   host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT || 3306,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 });
 
-pool.on('connect', () => {
-  console.log('Connected to PostgreSQL database');
-});
+pool.getConnection()
+  .then(connection => {
+    console.log('Connected to MySQL database');
+    connection.release();
+  })
+  .catch(err => {
+    console.error('Error connecting to MySQL:', err);
+    process.exit(-1);
+  });
 
-pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
-  process.exit(-1);
-});
-
-export const query = (text, params) => pool.query(text, params);
+export const query = async (text, params) => {
+  // Convert PostgreSQL $1, $2 placeholders to MySQL ? placeholders
+  const mysqlQuery = text.replace(/\$(\d+)/g, '?');
+  const [rows] = await pool.execute(mysqlQuery, params);
+  return { rows };
+};
 
 export default pool;

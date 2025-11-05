@@ -22,7 +22,7 @@ export const getRobotById = async (req, res) => {
       `SELECT r.*, m.name as team_lead_name
        FROM robots r
        LEFT JOIN members m ON r.team_lead_id = m.member_id
-       WHERE r.robot_id = $1`,
+       WHERE r.robot_id = ?`,
       [id]
     );
     
@@ -30,9 +30,8 @@ export const getRobotById = async (req, res) => {
       return res.status(404).json({ error: 'Robot not found' });
     }
     
-    // Get associated media
     const mediaResult = await query(
-      `SELECT * FROM media WHERE robot_id = $1`,
+      `SELECT * FROM media WHERE robot_id = ?`,
       [id]
     );
     
@@ -49,18 +48,21 @@ export const createRobot = async (req, res) => {
   try {
     const { name, competition_year, team_lead_id, specifications, performance_notes, final_rank } = req.body;
     
-    const result = await query(
+    await query(
       `INSERT INTO robots (name, competition_year, team_lead_id, specifications, performance_notes, final_rank)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [name, competition_year, team_lead_id, specifications, performance_notes, final_rank]
     );
     
-    // Log contribution
-    if (team_lead_id) {
+    const result = await query(
+      `SELECT * FROM robots ORDER BY robot_id DESC LIMIT 1`
+    );
+    
+    if (result.rows[0] && team_lead_id) {
       await query(
         `INSERT INTO contributions (member_id, contribution_type, reference_id)
-         VALUES ($1, 'robot_project', $2)`,
-        [team_lead_id, result.rows[0].robot_id]
+         VALUES (?, ?, ?)`,
+        [team_lead_id, 'robot_project', result.rows[0].robot_id]
       );
     }
     
@@ -75,14 +77,19 @@ export const updateRobot = async (req, res) => {
     const { id } = req.params;
     const { name, specifications, performance_notes, final_rank } = req.body;
     
-    const result = await query(
+    await query(
       `UPDATE robots 
-       SET name = COALESCE($1, name),
-           specifications = COALESCE($2, specifications),
-           performance_notes = COALESCE($3, performance_notes),
-           final_rank = COALESCE($4, final_rank)
-       WHERE robot_id = $5 RETURNING *`,
+       SET name = IFNULL(?, name),
+           specifications = IFNULL(?, specifications),
+           performance_notes = IFNULL(?, performance_notes),
+           final_rank = IFNULL(?, final_rank)
+       WHERE robot_id = ?`,
       [name, specifications, performance_notes, final_rank, id]
+    );
+    
+    const result = await query(
+      'SELECT * FROM robots WHERE robot_id = ?',
+      [id]
     );
     
     if (result.rows.length === 0) {
@@ -98,14 +105,20 @@ export const updateRobot = async (req, res) => {
 export const deleteRobot = async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await query(
-      'DELETE FROM robots WHERE robot_id = $1 RETURNING robot_id',
+    
+    const checkResult = await query(
+      'SELECT robot_id FROM robots WHERE robot_id = ?',
       [id]
     );
     
-    if (result.rows.length === 0) {
+    if (checkResult.rows.length === 0) {
       return res.status(404).json({ error: 'Robot not found' });
     }
+    
+    await query(
+      'DELETE FROM robots WHERE robot_id = ?',
+      [id]
+    );
     
     res.json({ message: 'Robot deleted successfully' });
   } catch (error) {
