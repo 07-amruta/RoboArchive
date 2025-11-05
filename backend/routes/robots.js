@@ -1,4 +1,5 @@
 import express from 'express';
+import multer from 'multer';
 import { 
   getAllRobots, 
   getRobotById, 
@@ -9,11 +10,15 @@ import {
 import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 100 * 1024 * 1024 }
+});
 
 router.get('/', getAllRobots);
 router.get('/:id', getRobotById);
-router.post('/', authenticateToken, createRobot);
-router.put('/:id', authenticateToken, updateRobot);
+router.post('/', authenticateToken, upload.single('file'), createRobot);
+router.put('/:id', authenticateToken, upload.single('file'), updateRobot);
 router.delete('/:id', authenticateToken, deleteRobot);
 
 export default router;

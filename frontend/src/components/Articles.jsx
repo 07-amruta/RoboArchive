@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const Articles = ({ user }) => {
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -12,7 +14,8 @@ const Articles = ({ user }) => {
     content: '',
     type: 'tutorial',
     category: '',
-    competition_year: ''
+    competition_year: '',
+    file: null
   });
 
   useEffect(() => {
@@ -21,7 +24,7 @@ const Articles = ({ user }) => {
 
   const fetchArticles = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/articles');
+      const response = await axios.get(`${API_URL}/api/articles`);
       setArticles(response.data);
       setLoading(false);
     } catch (error) {
@@ -34,11 +37,31 @@ const Articles = ({ user }) => {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.post('http://localhost:5000/api/articles', newArticle, {
-        headers: { Authorization: `Bearer ${token}` }
+      const formData = new FormData();
+      formData.append('title', newArticle.title);
+      formData.append('content', newArticle.content);
+      formData.append('type', newArticle.type);
+      formData.append('category', newArticle.category);
+      formData.append('competition_year', newArticle.competition_year);
+      if (newArticle.file) {
+        formData.append('file', newArticle.file);
+      }
+
+      await axios.post(`${API_URL}/api/articles`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
       });
       setShowAddModal(false);
-      setNewArticle({ title: '', content: '', type: 'tutorial', category: '', competition_year: '' });
+      setNewArticle({
+        title: '',
+        content: '',
+        type: 'tutorial',
+        category: '',
+        competition_year: '',
+        file: null
+      });
       fetchArticles();
       alert('Article created successfully');
     } catch (error) {
@@ -48,10 +71,10 @@ const Articles = ({ user }) => {
 
   const handleDeleteArticle = async (articleId) => {
     if (!window.confirm('Are you sure you want to delete this article?')) return;
-    
+
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5000/api/articles/${articleId}`, {
+      await axios.delete(`${API_URL}/api/articles/${articleId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchArticles();
@@ -129,6 +152,13 @@ const Articles = ({ user }) => {
                 <p className="text-xs text-gray-500">Category: {article.category}</p>
               )}
               <p className="text-xs text-gray-500">Views: {article.view_count || 0}</p>
+              {article.file_path && (
+                <p className="text-xs text-blue-500 mt-1">
+                  <a href={`${API_URL}${article.file_path}`} target="_blank" rel="noopener noreferrer">
+                    📎 View Attachment
+                  </a>
+                </p>
+              )}
             </div>
 
             <div className="mt-4 flex gap-2">
@@ -204,6 +234,19 @@ const Articles = ({ user }) => {
                 onChange={(e) => setNewArticle({...newArticle, competition_year: e.target.value})}
                 className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+
+              <div>
+                <label className="block text-sm text-gray-700 mb-2">Upload File (PDF, Images, Docs)</label>
+                <input
+                  type="file"
+                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.txt"
+                  onChange={(e) => setNewArticle({...newArticle, file: e.target.files[0]})}
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {newArticle.file && (
+                  <p className="text-sm text-green-600 mt-2">✓ File selected: {newArticle.file.name}</p>
+                )}
+              </div>
               
               <div className="flex gap-2">
                 <button

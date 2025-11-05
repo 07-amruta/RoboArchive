@@ -1,4 +1,16 @@
 import { query } from '../config/db.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadsDir = path.join(__dirname, '../uploads/robots');
+
+// Create uploads folder if it doesn't exist
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 export const getAllRobots = async (req, res) => {
   try {
@@ -30,15 +42,7 @@ export const getRobotById = async (req, res) => {
       return res.status(404).json({ error: 'Robot not found' });
     }
     
-    const mediaResult = await query(
-      `SELECT * FROM media WHERE robot_id = ?`,
-      [id]
-    );
-    
-    const robot = robotResult.rows[0];
-    robot.media = mediaResult.rows;
-    
-    res.json(robot);
+    res.json(robotResult.rows[0]);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -48,10 +52,19 @@ export const createRobot = async (req, res) => {
   try {
     const { name, competition_year, team_lead_id, specifications, performance_notes, final_rank } = req.body;
     
+    let file_path = null;
+    
+    if (req.file) {
+      const fileName = `${Date.now()}-${req.file.originalname}`;
+      const filePath = path.join(uploadsDir, fileName);
+      fs.writeFileSync(filePath, req.file.buffer);
+      file_path = `/uploads/robots/${fileName}`;
+    }
+    
     await query(
-      `INSERT INTO robots (name, competition_year, team_lead_id, specifications, performance_notes, final_rank)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [name, competition_year, team_lead_id, specifications, performance_notes, final_rank]
+      `INSERT INTO robots (name, competition_year, team_lead_id, specifications, performance_notes, final_rank, file_path)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [name, competition_year, team_lead_id, specifications, performance_notes, final_rank, file_path]
     );
     
     const result = await query(
@@ -77,15 +90,37 @@ export const updateRobot = async (req, res) => {
     const { id } = req.params;
     const { name, specifications, performance_notes, final_rank } = req.body;
     
-    await query(
-      `UPDATE robots 
-       SET name = IFNULL(?, name),
-           specifications = IFNULL(?, specifications),
-           performance_notes = IFNULL(?, performance_notes),
-           final_rank = IFNULL(?, final_rank)
-       WHERE robot_id = ?`,
-      [name, specifications, performance_notes, final_rank, id]
-    );
+    let file_path = null;
+    
+    if (req.file) {
+      const fileName = `${Date.now()}-${req.file.originalname}`;
+      const filePath = path.join(uploadsDir, fileName);
+      fs.writeFileSync(filePath, req.file.buffer);
+      file_path = `/uploads/robots/${fileName}`;
+    }
+    
+    if (file_path) {
+      await query(
+        `UPDATE robots 
+         SET name = IFNULL(?, name),
+             specifications = IFNULL(?, specifications),
+             performance_notes = IFNULL(?, performance_notes),
+             final_rank = IFNULL(?, final_rank),
+             file_path = ?
+         WHERE robot_id = ?`,
+        [name, specifications, performance_notes, final_rank, file_path, id]
+      );
+    } else {
+      await query(
+        `UPDATE robots 
+         SET name = IFNULL(?, name),
+             specifications = IFNULL(?, specifications),
+             performance_notes = IFNULL(?, performance_notes),
+             final_rank = IFNULL(?, final_rank)
+         WHERE robot_id = ?`,
+        [name, specifications, performance_notes, final_rank, id]
+      );
+    }
     
     const result = await query(
       'SELECT * FROM robots WHERE robot_id = ?',
@@ -106,13 +141,16 @@ export const deleteRobot = async (req, res) => {
   try {
     const { id } = req.params;
     
-    const checkResult = await query(
-      'SELECT robot_id FROM robots WHERE robot_id = ?',
+    const robot = await query(
+      'SELECT file_path FROM robots WHERE robot_id = ?',
       [id]
     );
     
-    if (checkResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Robot not found' });
+    if (robot.rows.length > 0 && robot.rows[0].file_path) {
+      const filePath = path.join(__dirname, '../', robot.rows[0].file_path);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
     }
     
     await query(
@@ -125,3 +163,5 @@ export const deleteRobot = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export default getAllRobots;

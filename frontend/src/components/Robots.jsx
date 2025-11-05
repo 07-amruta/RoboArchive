@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const Robots = ({ user }) => {
   const [robots, setRobots] = useState([]);
   const [members, setMembers] = useState([]);
@@ -12,7 +14,8 @@ const Robots = ({ user }) => {
     team_lead_id: '',
     specifications: '',
     performance_notes: '',
-    final_rank: ''
+    final_rank: '',
+    file: null
   });
 
   useEffect(() => {
@@ -22,7 +25,7 @@ const Robots = ({ user }) => {
 
   const fetchRobots = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/robots');
+      const response = await axios.get(`${API_URL}/api/robots`);
       setRobots(response.data);
       setLoading(false);
     } catch (error) {
@@ -34,7 +37,7 @@ const Robots = ({ user }) => {
   const fetchMembers = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/members', {
+      const response = await axios.get(`${API_URL}/api/members`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setMembers(response.data);
@@ -47,8 +50,22 @@ const Robots = ({ user }) => {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.post('http://localhost:5000/api/robots', newRobot, {
-        headers: { Authorization: `Bearer ${token}` }
+      const formData = new FormData();
+      formData.append('name', newRobot.name);
+      formData.append('competition_year', newRobot.competition_year);
+      formData.append('team_lead_id', newRobot.team_lead_id);
+      formData.append('specifications', newRobot.specifications);
+      formData.append('performance_notes', newRobot.performance_notes);
+      formData.append('final_rank', newRobot.final_rank);
+      if (newRobot.file) {
+        formData.append('file', newRobot.file);
+      }
+
+      await axios.post(`${API_URL}/api/robots`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
       });
       setShowAddModal(false);
       setNewRobot({
@@ -57,7 +74,8 @@ const Robots = ({ user }) => {
         team_lead_id: '',
         specifications: '',
         performance_notes: '',
-        final_rank: ''
+        final_rank: '',
+        file: null
       });
       fetchRobots();
       alert('Robot created successfully');
@@ -68,10 +86,10 @@ const Robots = ({ user }) => {
 
   const handleDeleteRobot = async (robotId) => {
     if (!window.confirm('Are you sure you want to delete this robot?')) return;
-    
+
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5000/api/robots/${robotId}`, {
+      await axios.delete(`${API_URL}/api/robots/${robotId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchRobots();
@@ -132,6 +150,16 @@ const Robots = ({ user }) => {
                   <div className="mb-4">
                     <p className="text-sm text-gray-600 mb-1">Performance Notes</p>
                     <p className="text-sm text-gray-700">{robot.performance_notes}</p>
+                  </div>
+                )}
+
+                {robot.file_path && (
+                  <div className="mb-4">
+                    <p className="text-sm text-blue-600">
+                      <a href={`${API_URL}${robot.file_path}`} target="_blank" rel="noopener noreferrer">
+                        📎 View Media
+                      </a>
+                    </p>
                   </div>
                 )}
 
@@ -220,6 +248,19 @@ const Robots = ({ user }) => {
                 className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 rows="4"
               />
+
+              <div>
+                <label className="block text-sm text-gray-700 mb-2">Upload Media (Images, Videos, PDFs)</label>
+                <input
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.pdf,.mp4,.avi,.mov"
+                  onChange={(e) => setNewRobot({...newRobot, file: e.target.files[0]})}
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {newRobot.file && (
+                  <p className="text-sm text-green-600 mt-2">✓ File selected: {newRobot.file.name}</p>
+                )}
+              </div>
               
               <div className="flex gap-2">
                 <button

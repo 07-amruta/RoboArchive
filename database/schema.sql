@@ -33,7 +33,7 @@ CREATE TABLE tasks (
     FOREIGN KEY (created_by) REFERENCES members(member_id) ON DELETE SET NULL
 );
 
--- Articles table
+-- Articles table (WITH FILE UPLOAD SUPPORT)
 CREATE TABLE articles (
     article_id INT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(200) NOT NULL,
@@ -43,12 +43,13 @@ CREATE TABLE articles (
     category VARCHAR(100),
     competition_year INT,
     view_count INT DEFAULT 0,
+    file_path VARCHAR(500),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (author_id) REFERENCES members(member_id) ON DELETE SET NULL
 );
 
--- Robots table
+-- Robots table (WITH FILE UPLOAD SUPPORT)
 CREATE TABLE robots (
     robot_id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -57,6 +58,7 @@ CREATE TABLE robots (
     specifications TEXT,
     performance_notes TEXT,
     final_rank INT,
+    file_path VARCHAR(500),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (team_lead_id) REFERENCES members(member_id) ON DELETE SET NULL
 );
@@ -92,3 +94,5 @@ CREATE INDEX idx_tasks_assigned ON tasks(assigned_to);
 CREATE INDEX idx_articles_author ON articles(author_id);
 CREATE INDEX idx_robots_year ON robots(competition_year);
 CREATE INDEX idx_contributions_member ON contributions(member_id);
+CREATE INDEX idx_articles_file ON articles(file_path);
+CREATE INDEX idx_robots_file ON robots(file_path);

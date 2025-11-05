@@ -1,4 +1,16 @@
 import { query } from '../config/db.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadsDir = path.join(__dirname, '../uploads/articles');
+
+// Create uploads folder if it doesn't exist
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 export const getAllArticles = async (req, res) => {
   try {
@@ -73,10 +85,19 @@ export const createArticle = async (req, res) => {
     const { title, content, type, category, competition_year } = req.body;
     const author_id = req.user.member_id;
     
+    let file_path = null;
+    
+    if (req.file) {
+      const fileName = `${Date.now()}-${req.file.originalname}`;
+      const filePath = path.join(uploadsDir, fileName);
+      fs.writeFileSync(filePath, req.file.buffer);
+      file_path = `/uploads/articles/${fileName}`;
+    }
+    
     await query(
-      `INSERT INTO articles (title, content, author_id, type, category, competition_year)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [title, content, author_id, type, category, competition_year]
+      `INSERT INTO articles (title, content, author_id, type, category, competition_year, file_path)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [title, content, author_id, type, category, competition_year, file_path]
     );
     
     const result = await query(
@@ -103,17 +124,41 @@ export const updateArticle = async (req, res) => {
     const { id } = req.params;
     const { title, content, type, category, competition_year } = req.body;
     
-    await query(
-      `UPDATE articles 
-       SET title = IFNULL(?, title),
-           content = IFNULL(?, content),
-           type = IFNULL(?, type),
-           category = IFNULL(?, category),
-           competition_year = IFNULL(?, competition_year),
-           updated_at = CURRENT_TIMESTAMP
-       WHERE article_id = ?`,
-      [title, content, type, category, competition_year, id]
-    );
+    let file_path = null;
+    
+    if (req.file) {
+      const fileName = `${Date.now()}-${req.file.originalname}`;
+      const filePath = path.join(uploadsDir, fileName);
+      fs.writeFileSync(filePath, req.file.buffer);
+      file_path = `/uploads/articles/${fileName}`;
+    }
+    
+    if (file_path) {
+      await query(
+        `UPDATE articles 
+         SET title = IFNULL(?, title),
+             content = IFNULL(?, content),
+             type = IFNULL(?, type),
+             category = IFNULL(?, category),
+             competition_year = IFNULL(?, competition_year),
+             file_path = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE article_id = ?`,
+        [title, content, type, category, competition_year, file_path, id]
+      );
+    } else {
+      await query(
+        `UPDATE articles 
+         SET title = IFNULL(?, title),
+             content = IFNULL(?, content),
+             type = IFNULL(?, type),
+             category = IFNULL(?, category),
+             competition_year = IFNULL(?, competition_year),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE article_id = ?`,
+        [title, content, type, category, competition_year, id]
+      );
+    }
     
     const result = await query(
       'SELECT * FROM articles WHERE article_id = ?',
@@ -134,13 +179,16 @@ export const deleteArticle = async (req, res) => {
   try {
     const { id } = req.params;
     
-    const checkResult = await query(
-      'SELECT article_id FROM articles WHERE article_id = ?',
+    const article = await query(
+      'SELECT file_path FROM articles WHERE article_id = ?',
       [id]
     );
     
-    if (checkResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Article not found' });
+    if (article.rows.length > 0 && article.rows[0].file_path) {
+      const filePath = path.join(__dirname, '../', article.rows[0].file_path);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
     }
     
     await query(
@@ -153,3 +201,5 @@ export const deleteArticle = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export default getAllArticles;
