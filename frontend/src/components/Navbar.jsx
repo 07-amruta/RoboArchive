@@ -16,7 +16,7 @@ const Navbar = ({ user, onLogout }) => {
             🤖 RoboArchive
           </Link>
           
-          <div className="flex space-x-6">
+          <div className="flex space-x-6 items-center">
             <Link
               to="/"
               className={`hover:text-blue-200 transition ${isActive('/') ? 'border-b-2 border-white' : ''}`}
@@ -50,11 +50,12 @@ const Navbar = ({ user, onLogout }) => {
           </div>
           
           <div className="flex items-center space-x-4">
-            {/* Dark Mode Toggle */}
+            {/* Dark Mode Toggle Button */}
             <button
               onClick={toggleDarkMode}
-              className="px-3 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-yellow-300 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition text-lg"
-              title={darkMode ? 'Light Mode' : 'Dark Mode'}
+              className="px-3 py-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-yellow-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-200 text-lg font-bold"
+              title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              aria-label="Toggle dark mode"
             >
               {darkMode ? '☀️' : '🌙'}
             </button>
@@ -64,7 +65,7 @@ const Navbar = ({ user, onLogout }) => {
             </span>
             <button
               onClick={onLogout}
-              className="bg-red-500 px-4 py-2 rounded hover:bg-red-600 transition"
+              className="bg-red-500 dark:bg-red-700 px-4 py-2 rounded hover:bg-red-600 dark:hover:bg-red-800 transition"
             >
               Logout
             </button>

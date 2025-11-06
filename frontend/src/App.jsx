@@ -16,19 +16,22 @@ function App() {
   const [user, setUser] = useState(null);
   const [darkMode, setDarkMode] = useState(() => {
     // Load from localStorage
-    return localStorage.getItem('darkMode') === 'true';
+    const saved = localStorage.getItem('darkMode');
+    return saved !== null ? JSON.parse(saved) : false;
   });
 
+  // ✅ FIX: Update dark mode class on root element
   useEffect(() => {
-    // Save to localStorage whenever it changes
-    localStorage.setItem('darkMode', darkMode);
+    const root = document.documentElement;
     
-    // Apply dark mode to root element
     if (darkMode) {
-      document.documentElement.classList.add('dark');
+      root.classList.add('dark');
     } else {
-      document.documentElement.classList.remove('dark');
+      root.classList.remove('dark');
     }
+    
+    // Save to localStorage
+    localStorage.setItem('darkMode', JSON.stringify(darkMode));
   }, [darkMode]);
 
   useEffect(() => {
@@ -41,7 +44,7 @@ function App() {
   }, []);
 
   const toggleDarkMode = () => {
-    setDarkMode(!darkMode);
+    setDarkMode(prev => !prev);
   };
 
   const handleLogin = (token, userData) => {
@@ -61,10 +64,10 @@ function App() {
   return (
     <DarkModeContext.Provider value={{ darkMode, toggleDarkMode }}>
       <Router>
-        <div className={darkMode ? 'dark' : ''}>
-          <div className="min-h-screen bg-gray-100 dark:bg-gray-950 transition-colors duration-200">
-            {isAuthenticated && <Navbar user={user} onLogout={handleLogout} />}
-            
+        <div className="min-h-screen bg-white dark:bg-gray-950 transition-colors duration-200">
+          {isAuthenticated && <Navbar user={user} onLogout={handleLogout} />}
+          
+          <div className="bg-gray-100 dark:bg-gray-900 transition-colors duration-200 min-h-screen">
             <Routes>
               <Route 
                 path="/login" 
