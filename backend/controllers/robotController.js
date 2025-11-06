@@ -7,21 +7,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const uploadsDir = path.join(__dirname, '../uploads/robots');
 
-// Create uploads folder if it doesn't exist
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
 export const getAllRobots = async (req, res) => {
   try {
-    const result = await query(
-      `SELECT r.*, m.name as team_lead_name
-       FROM robots r
-       LEFT JOIN members m ON r.team_lead_id = m.member_id
-       ORDER BY r.competition_year DESC`
-    );
-    res.json(result.rows);
+    const rows = await query(`SELECT * FROM robots ORDER BY robot_id DESC`);
+    // ✅ Handle both array and object responses
+    const robotList = Array.isArray(rows) ? rows : (rows && rows.rows ? rows.rows : []);
+    res.json(robotList);
   } catch (error) {
+    console.error('getAllRobots error:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -29,20 +26,14 @@ export const getAllRobots = async (req, res) => {
 export const getRobotById = async (req, res) => {
   try {
     const { id } = req.params;
+    const rows = await query(`SELECT * FROM robots WHERE robot_id = ?`, [id]);
+    const robotList = Array.isArray(rows) ? rows : (rows && rows.rows ? rows.rows : []);
     
-    const robotResult = await query(
-      `SELECT r.*, m.name as team_lead_name
-       FROM robots r
-       LEFT JOIN members m ON r.team_lead_id = m.member_id
-       WHERE r.robot_id = ?`,
-      [id]
-    );
-    
-    if (robotResult.rows.length === 0) {
+    if (robotList.length === 0) {
       return res.status(404).json({ error: 'Robot not found' });
     }
     
-    res.json(robotResult.rows[0]);
+    res.json(robotList[0]);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -50,7 +41,11 @@ export const getRobotById = async (req, res) => {
 
 export const createRobot = async (req, res) => {
   try {
-    const { name, competition_year, team_lead_id, specifications, performance_notes, final_rank } = req.body;
+    const { name, specifications } = req.body;
+    
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Robot name is required' });
+    }
     
     let file_path = null;
     
@@ -61,26 +56,18 @@ export const createRobot = async (req, res) => {
       file_path = `/uploads/robots/${fileName}`;
     }
     
-    await query(
-      `INSERT INTO robots (name, competition_year, team_lead_id, specifications, performance_notes, final_rank, file_path)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [name, competition_year, team_lead_id, specifications, performance_notes, final_rank, file_path]
-    );
-    
     const result = await query(
-      `SELECT * FROM robots ORDER BY robot_id DESC LIMIT 1`
+      `INSERT INTO robots (name, specifications, file_path) VALUES (?, ?, ?)`,
+      [name.trim(), specifications && specifications.trim() ? specifications.trim() : null, file_path]
     );
     
-    if (result.rows[0] && team_lead_id) {
-      await query(
-        `INSERT INTO contributions (member_id, contribution_type, reference_id)
-         VALUES (?, ?, ?)`,
-        [team_lead_id, 'robot_project', result.rows[0].robot_id]
-      );
-    }
-    
-    res.status(201).json(result.rows[0]);
+    res.status(201).json({
+      message: 'Robot created successfully',
+      robot_id: result.insertId || result.lastID,
+      name: name.trim()
+    });
   } catch (error) {
+    console.error('createRobot error:', error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -88,50 +75,41 @@ export const createRobot = async (req, res) => {
 export const updateRobot = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, specifications, performance_notes, final_rank } = req.body;
+    const { name, specifications } = req.body;
     
-    let file_path = null;
+    const updateFields = {};
+    
+    if (name !== undefined && name.trim()) {
+      updateFields.name = name.trim();
+    }
+    if (specifications !== undefined) {
+      updateFields.specifications = specifications && specifications.trim() ? specifications.trim() : null;
+    }
     
     if (req.file) {
       const fileName = `${Date.now()}-${req.file.originalname}`;
       const filePath = path.join(uploadsDir, fileName);
       fs.writeFileSync(filePath, req.file.buffer);
-      file_path = `/uploads/robots/${fileName}`;
+      updateFields.file_path = `/uploads/robots/${fileName}`;
     }
     
-    if (file_path) {
-      await query(
-        `UPDATE robots 
-         SET name = IFNULL(?, name),
-             specifications = IFNULL(?, specifications),
-             performance_notes = IFNULL(?, performance_notes),
-             final_rank = IFNULL(?, final_rank),
-             file_path = ?
-         WHERE robot_id = ?`,
-        [name, specifications, performance_notes, final_rank, file_path, id]
-      );
-    } else {
-      await query(
-        `UPDATE robots 
-         SET name = IFNULL(?, name),
-             specifications = IFNULL(?, specifications),
-             performance_notes = IFNULL(?, performance_notes),
-             final_rank = IFNULL(?, final_rank)
-         WHERE robot_id = ?`,
-        [name, specifications, performance_notes, final_rank, id]
-      );
+    if (Object.keys(updateFields).length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
     }
     
-    const result = await query(
-      'SELECT * FROM robots WHERE robot_id = ?',
-      [id]
-    );
+    const setClause = Object.keys(updateFields).map(key => `${key} = ?`).join(', ');
+    const values = [...Object.values(updateFields), id];
     
-    if (result.rows.length === 0) {
+    await query(`UPDATE robots SET ${setClause} WHERE robot_id = ?`, values);
+    
+    const rows = await query('SELECT * FROM robots WHERE robot_id = ?', [id]);
+    const robotList = Array.isArray(rows) ? rows : (rows && rows.rows ? rows.rows : []);
+    
+    if (robotList.length === 0) {
       return res.status(404).json({ error: 'Robot not found' });
     }
     
-    res.json(result.rows[0]);
+    res.json(robotList[0]);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -141,22 +119,17 @@ export const deleteRobot = async (req, res) => {
   try {
     const { id } = req.params;
     
-    const robot = await query(
-      'SELECT file_path FROM robots WHERE robot_id = ?',
-      [id]
-    );
+    const rows = await query('SELECT file_path FROM robots WHERE robot_id = ?', [id]);
+    const robotList = Array.isArray(rows) ? rows : (rows && rows.rows ? rows.rows : []);
     
-    if (robot.rows.length > 0 && robot.rows[0].file_path) {
-      const filePath = path.join(__dirname, '../', robot.rows[0].file_path);
+    if (robotList.length > 0 && robotList[0].file_path) {
+      const filePath = path.join(__dirname, '../', robotList[0].file_path);
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }
     }
     
-    await query(
-      'DELETE FROM robots WHERE robot_id = ?',
-      [id]
-    );
+    await query('DELETE FROM robots WHERE robot_id = ?', [id]);
     
     res.json({ message: 'Robot deleted successfully' });
   } catch (error) {
