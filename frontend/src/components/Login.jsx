@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import axios from 'axios';
+import { DarkModeContext } from '../App';
 
 const Login = ({ onLogin }) => {
   const [isRegister, setIsRegister] = useState(false);
@@ -12,6 +13,7 @@ const Login = ({ onLogin }) => {
     graduation_year: new Date().getFullYear() + 4
   });
   const [error, setError] = useState('');
+  const { darkMode } = useContext(DarkModeContext);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -37,14 +39,14 @@ const Login = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
-      <div className="bg-white p-8 rounded-lg shadow-2xl w-96">
-        <h2 className="text-3xl font-bold text-center mb-6 text-gray-800">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 dark:from-gray-900 dark:to-gray-800 transition-colors duration-200">
+      <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-2xl w-96 transition-colors duration-200">
+        <h2 className="text-3xl font-bold text-center mb-6 text-gray-800 dark:text-white">
           {isRegister ? 'Register' : 'Login'} to RoboArchive
         </h2>
         
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <div className="bg-red-100 dark:bg-red-900 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-200 px-4 py-3 rounded mb-4">
             {error}
           </div>
         )}
@@ -59,14 +61,14 @@ const Login = ({ onLogin }) => {
                 value={formData.name}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
               />
               
               <select
                 name="role"
                 value={formData.role}
                 onChange={handleChange}
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
               >
                 <option value="mechanical">Mechanical</option>
                 <option value="electrical">Electrical</option>
@@ -82,7 +84,7 @@ const Login = ({ onLogin }) => {
                 value={formData.join_year}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
               />
               
               <input
@@ -92,7 +94,7 @@ const Login = ({ onLogin }) => {
                 value={formData.graduation_year}
                 onChange={handleChange}
                 required
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
               />
             </>
           )}
@@ -104,7 +106,7 @@ const Login = ({ onLogin }) => {
             value={formData.email}
             onChange={handleChange}
             required
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
           />
           
           <input
@@ -114,22 +116,22 @@ const Login = ({ onLogin }) => {
             value={formData.password}
             onChange={handleChange}
             required
-            className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
           />
           
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition duration-300"
+            className="w-full bg-blue-600 dark:bg-blue-700 text-white py-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 transition duration-300"
           >
             {isRegister ? 'Register' : 'Login'}
           </button>
         </form>
         
-        <p className="text-center mt-4 text-gray-600">
+        <p className="text-center mt-4 text-gray-600 dark:text-gray-400">
           {isRegister ? 'Already have an account?' : "Don't have an account?"}
           <button
             onClick={() => setIsRegister(!isRegister)}
-            className="text-blue-600 ml-2 hover:underline"
+            className="text-blue-600 dark:text-blue-400 ml-2 hover:underline"
           >
             {isRegister ? 'Login' : 'Register'}
           </button>

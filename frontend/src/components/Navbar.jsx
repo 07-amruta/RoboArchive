@@ -1,13 +1,15 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { DarkModeContext } from '../App';
 
 const Navbar = ({ user, onLogout }) => {
   const location = useLocation();
+  const { darkMode, toggleDarkMode } = useContext(DarkModeContext);
   
   const isActive = (path) => location.pathname === path;
 
   return (
-    <nav className="bg-blue-600 text-white shadow-lg">
+    <nav className="bg-blue-600 dark:bg-gray-900 text-white shadow-lg transition-colors duration-200">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center py-4">
           <Link to="/" className="text-2xl font-bold">
@@ -48,6 +50,15 @@ const Navbar = ({ user, onLogout }) => {
           </div>
           
           <div className="flex items-center space-x-4">
+            {/* Dark Mode Toggle */}
+            <button
+              onClick={toggleDarkMode}
+              className="px-3 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-yellow-300 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition text-lg"
+              title={darkMode ? 'Light Mode' : 'Dark Mode'}
+            >
+              {darkMode ? '☀️' : '🌙'}
+            </button>
+
             <span className="text-sm">
               {user?.name} ({user?.role})
             </span>
